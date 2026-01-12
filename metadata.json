@@ -1,0 +1,7 @@
+{
+  "name": "Translate",
+  "description": "Interactive Tunning",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

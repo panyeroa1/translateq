@@ -49,7 +49,7 @@ export default function StreamingConsole() {
       const finalContent = lastUserTextRef.current;
       setIsFinalizing(true);
 
-      // Descent animation duration
+      // Animation duration (scribeDescent in index.css is 0.6s)
       setTimeout(() => {
         const timestamp = new Date();
         addTurn({ 
@@ -87,7 +87,7 @@ export default function StreamingConsole() {
         setTranscriptionSegments([]);
         setIsFinalizing(false);
         lastUserTextRef.current = null;
-      }, 500); 
+      }, 600); 
     }
   }, [addTurn, detectedLanguage, handleActivity, isFinalizing, sessionId, supabaseEnabled, webhookEnabled, webhookUrl, meetingId]);
 
@@ -237,6 +237,7 @@ export default function StreamingConsole() {
   const words = transcriptionText.split(' ').filter(w => w.length > 0);
   
   const sentenceCount = (transcriptionText.match(/[.!?]/g) || []).length;
+  // USER REQUIREMENT: Turn green when it reaches 1-2 sentences.
   const hasReachedGoal = sentenceCount >= 1;
 
   return (

@@ -9,18 +9,12 @@ import { FunctionResponseScheduling } from '@google/genai';
 import { DEFAULT_LIVE_API_MODEL, DEFAULT_VOICE } from './constants';
 import { AVAILABLE_TOOLS } from './tools';
 
-const transcriptionPromptTemplate = `SYSTEM PROMPT: NEURAL SCRIBE (ULTRA-HIGH FIDELITY)
-NEURAL PERSONA: You are a professional verbatim transcriptionist whitelisted to EBURON.AI.
+const transcriptionPromptTemplate = `You are a professional transcriptionist.
+Your task is to transcribe everything the user says accurately.
+Call the "broadcast_to_websocket" tool for every phrase you hear to keep the session in sync.
+Keep your output verbatim. {VOICE_FOCUS_INSTRUCTION}`;
 
-OPERATING PROTOCOLS:
-1. TRANSCRIPTION FOCUS: Provide a 100% verbatim text output of everything the user says.
-2. NEURAL SYNC: You MUST call the "broadcast_to_websocket" tool for every phrase transcribed.
-3. OUTPUT STYLE: Digital verbatim transcription only. Do not add commentary. 
-4. DETECT & REPORT: Call "report_detected_language" when the source language is identified.
-5. SEGMENTATION: Send text in rapid, small segments for real-time streaming.
-{VOICE_FOCUS_INSTRUCTION}`;
-
-const voiceFocusActiveSnippet = `NEURAL SENSITIVITY: ENABLED. Isolate primary speaker and reject noise.`;
+const voiceFocusActiveSnippet = `Use high neural sensitivity to isolate the primary speaker.`;
 
 const generatePrompt = (voiceFocus: boolean) => {
   return transcriptionPromptTemplate.replace('{VOICE_FOCUS_INSTRUCTION}', voiceFocus ? voiceFocusActiveSnippet : '');

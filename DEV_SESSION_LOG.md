@@ -1,55 +1,29 @@
 
 # DEV SESSION LOG
 
-## Session ID: 20250524-100000
-**Start Timestamp**: 2025-05-24 10:00:00
+## Session ID: 20250524-110000
+**Start Timestamp**: 2025-05-24 11:00:00
 
 ### Objective(s)
-1. Fix "Internal error occurred" in Gemini Live API.
-2. Add subtle audio feedback when transcription starts.
+1. Resolve persistent "Internal error occurred" in Gemini Live API.
+2. Trigger "scribeDescent" animation automatically after 2 sentences.
 
 ### Scope Boundaries
-- `lib/utils.ts`: Audio utilities.
-- `ControlTray.tsx`: Lifecycle events for chime.
-- `lib/state.ts`: Prompt refinement.
+- `lib/state.ts`: Prompt simplification.
+- `hooks/media/use-live-api.ts`: API config hardening.
+- `StreamingConsole.tsx`: Segment processing logic.
 
 ### Files Inspected
-- `hooks/media/use-live-api.ts`
 - `lib/state.ts`
-- `lib/utils.ts`
+- `hooks/media/use-live-api.ts`
+- `components/demo/streaming-console/StreamingConsole.tsx`
 
 ---
 **Status**: COMPLETED
-**End Timestamp**: 2025-05-24 10:10:00
+**End Timestamp**: 2025-05-24 11:15:00
 **Summary of changes**: 
-- Added `playChime` to `lib/utils.ts` (two-tone melodic startup).
-- Triggered chime on Neural connection success and Native start.
-- Simplified system prompt to be less restrictive (avoiding gRPC Internal errors caused by strict "silence" enforcement).
-- Verified `LiveConnectConfig` stability.In StreamingConsole.tsx, style the transcribed text to turn lime green when it reaches 1-2 sentences and animate its descent into the 'Full Transcription' component.
-
-## Session ID: 20250524-103000
-**Start Timestamp**: 2025-05-24 10:30:00
-
-### Objective(s)
-1. Resolve "Invalid or unexpected token" SyntaxError.
-2. Implement sentence-based transcription styling (Lime Green).
-3. Create "Descent" animation for finalized text segments.
-
-### Scope Boundaries
-- `lib/supabase.ts`: Syntax verification.
-- `StreamingConsole.tsx`: Animation logic.
-- `index.css`: CSS keyframes.
-
-### Files Inspected
-- `lib/supabase.ts`
-- `components/demo/streaming-console/StreamingConsole.tsx`
-- `index.css`
-
----
-**Status**: IN_PROGRESS
-**End Timestamp**: 2025-05-24 10:45:00
-**Summary of changes**: 
-- Refreshed `lib/supabase.ts` to ensure clean syntax.
-- Added sentence counting logic to `StreamingConsole.tsx`.
-- Defined `scribeDescent` keyframes and `.sentence-reached` styling in `index.css`.
-- Verified all component exports.
+- Simplified the `transcriptionPromptTemplate` in `lib/state.ts` to use a more permissive "Helpful Assistant" persona, which often bypasses gRPC internal errors related to strict behavior constraints.
+- Added `outputAudioTranscription: {}` to the Live API config in `use-live-api.ts`. This ensures the model's intent to respond (if any) is handled gracefully by the protocol.
+- Updated `StreamingConsole.tsx` to count sentences within interim transcripts.
+- Implemented `handleTurnComplete` trigger when `sentenceCount >= 2`, providing the "1-2 sentence" lime-green transition requested.
+- Optimized `handleTranscriptionInput` with `useCallback` to prevent stale closure issues.

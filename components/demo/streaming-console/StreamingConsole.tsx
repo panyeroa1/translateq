@@ -3,7 +3,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import cn from 'classnames';
 import { Modality, LiveConnectConfig, LiveServerToolCall } from '@google/genai';
 import { useLiveAPIContext } from '../../../contexts/LiveAPIContext';
@@ -32,20 +32,43 @@ export default function StreamingConsole() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastUserTextRef = useRef<string | null>(null);
 
-  // Listen for WebSocket messages (including native transcriptions)
-  useEffect(() => {
-    const handleWSMessage = (data: any) => {
-      if (data.type === 'transcription') {
-        handleTranscriptionInput(data.text, data.isFinal);
-      }
-    };
-    wsService.on('message', handleWSMessage);
-    return () => wsService.off('message', handleWSMessage);
+  const handleActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
   }, []);
 
-  const handleTranscriptionInput = (text: string, isFinal: boolean = false) => {
+  const handleTurnComplete = useCallback(() => {
     handleActivity();
-    setIsFinalizing(false);
+    if (lastUserTextRef.current && !isFinalizing) {
+      const finalContent = lastUserTextRef.current;
+      setIsFinalizing(true);
+
+      // Descent animation duration
+      setTimeout(() => {
+        addTurn({ 
+           role: 'user', 
+           text: finalContent, 
+           isFinal: true 
+        });
+
+        if (supabaseEnabled) {
+          logToSupabase({
+            session_id: sessionId,
+            user_text: finalContent,
+            agent_text: "[Log Only]",
+            language: detectedLanguage || "Unknown"
+          });
+        }
+
+        setTranscriptionSegments([]);
+        setIsFinalizing(false);
+        lastUserTextRef.current = null;
+      }, 500); 
+    }
+  }, [addTurn, detectedLanguage, handleActivity, isFinalizing, sessionId, supabaseEnabled]);
+
+  const handleTranscriptionInput = useCallback((text: string, isFinal: boolean = false) => {
+    handleActivity();
+    if (isFinalizing) return;
 
     setTranscriptionSegments(prev => {
       const last = prev[prev.length - 1];
@@ -59,6 +82,13 @@ export default function StreamingConsole() {
     
     lastUserTextRef.current = text;
 
+    // Check for 2 sentences to auto-finalize
+    const sentenceCount = (text.match(/[.!?]/g) || []).length;
+    if (sentenceCount >= 2) {
+      handleTurnComplete();
+      return;
+    }
+
     if (isFinal) {
        handleTurnComplete();
     } else {
@@ -69,13 +99,20 @@ export default function StreamingConsole() {
         }
       }, 5000);
     }
-  };
+  }, [handleActivity, handleTurnComplete, isFinalizing]);
 
-  const handleActivity = () => {
-    lastActivityRef.current = Date.now();
-  };
+  // Listen for WebSocket messages (including native transcriptions)
+  useEffect(() => {
+    const handleWSMessage = (data: any) => {
+      if (data.type === 'transcription') {
+        handleTranscriptionInput(data.text, data.isFinal);
+      }
+    };
+    wsService.on('message', handleWSMessage);
+    return () => wsService.off('message', handleWSMessage);
+  }, [handleTranscriptionInput]);
 
-  // Robust Auto-Scroll Logic
+  // Auto-Scroll
   useEffect(() => {
     const scrollToBottom = () => {
       if (historyBottomRef.current) {
@@ -87,7 +124,7 @@ export default function StreamingConsole() {
     return () => cancelAnimationFrame(frameId);
   }, [turns]);
 
-  // Latency Monitoring Logic
+  // Latency Monitoring
   useEffect(() => {
     if (!connected || transcriptionMode === 'native') {
       setLatencyWarning(false);
@@ -123,6 +160,7 @@ export default function StreamingConsole() {
     const config: LiveConnectConfig = {
       responseModalities: [Modality.AUDIO],
       inputAudioTranscription: {},
+      outputAudioTranscription: {},
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: { voiceName: 'Zephyr' },
@@ -140,7 +178,7 @@ export default function StreamingConsole() {
     setConfig(config);
   }, [setConfig, systemPrompt, tools, transcriptionMode]);
 
-  const handleToolCall = (toolCall: LiveServerToolCall) => {
+  const handleToolCall = useCallback((toolCall: LiveServerToolCall) => {
     handleActivity();
     for (const fc of toolCall.functionCalls) {
       if (fc.name === 'report_detected_language') {
@@ -150,37 +188,7 @@ export default function StreamingConsole() {
         }
       }
     }
-  };
-
-  const handleTurnComplete = () => {
-    handleActivity();
-    if (lastUserTextRef.current) {
-      const finalContent = lastUserTextRef.current;
-      setIsFinalizing(true);
-
-      // Desending animation duration should match CSS scribeDescent duration
-      setTimeout(() => {
-        addTurn({ 
-           role: 'user', 
-           text: finalContent, 
-           isFinal: true 
-        });
-
-        if (supabaseEnabled) {
-          logToSupabase({
-            session_id: sessionId,
-            user_text: finalContent,
-            agent_text: "[Log Only]",
-            language: detectedLanguage || "Unknown"
-          });
-        }
-
-        setTranscriptionSegments([]);
-        setIsFinalizing(false);
-        lastUserTextRef.current = null;
-      }, 500); 
-    }
-  };
+  }, [handleActivity]);
 
   useEffect(() => {
     if (transcriptionMode !== 'neural') return;
@@ -198,12 +206,11 @@ export default function StreamingConsole() {
       client.off('toolcall', handleToolCall);
       client.off('turncomplete', handleTurnComplete);
     };
-  }, [client, sessionId, supabaseEnabled, addTurn, detectedLanguage, transcriptionMode]);
+  }, [client, handleActivity, handleToolCall, handleTranscriptionInput, handleTurnComplete, transcriptionMode]);
 
   const transcriptionText = transcriptionSegments.join(' ');
   const words = transcriptionText.split(' ').filter(w => w.length > 0);
   
-  // Logic: Identify 1-2 completed sentences
   const sentenceCount = (transcriptionText.match(/[.!?]/g) || []).length;
   const hasReachedGoal = sentenceCount >= 1;
 

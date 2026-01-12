@@ -40,10 +40,11 @@ export function useLiveApi(): UseLiveApiResults {
   const [connected, setConnected] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   
-  // FIX: Initialize with Modality.AUDIO to prevent 'Operation not supported' errors on first connect
+  // FIX: Added outputAudioTranscription to prevent potential gRPC internal errors when model generates content.
   const [config, setConfig] = useState<LiveConnectConfig>({
     responseModalities: [Modality.AUDIO],
     inputAudioTranscription: {},
+    outputAudioTranscription: {}, 
   });
 
   useEffect(() => {
@@ -76,10 +77,8 @@ export function useLiveApi(): UseLiveApiResults {
     
     // MUTE: The user only wants transcription. We intentionally ignore the audio modality output.
     const onAudio = (data: ArrayBuffer) => {
-      // Logic removed to satisfy 'mute speaking function' request.
-      // Modality.AUDIO is still used to satisfy Gemini Live API requirements, 
-      // but we simply do not play the bytes.
-      console.debug('Audio chunk received and suppressed (transcription-only mode).');
+      // Audio chunks suppressed for transcription-only workflow.
+      console.debug('Audio chunk received and suppressed.');
     };
 
     const onToolCall = (toolCall: LiveServerToolCall) => {
@@ -87,8 +86,6 @@ export function useLiveApi(): UseLiveApiResults {
         if (fc.name === 'broadcast_to_websocket') {
           const text = (fc.args as any).text;
           wsService.sendPrompt(text);
-          // Following guideline exactly: send response for the specific ID. 
-          // Fix: functionResponses must be an array.
           client.sendToolResponse({ 
             functionResponses: [{ 
               id: fc.id, 
@@ -97,7 +94,6 @@ export function useLiveApi(): UseLiveApiResults {
             }] 
           });
         } else {
-          // Fix: functionResponses must be an array.
           client.sendToolResponse({ 
             functionResponses: [{ 
               id: fc.id, 

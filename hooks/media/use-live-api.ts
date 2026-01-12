@@ -26,6 +26,7 @@ export type UseLiveApiResults = {
   setInputVolume: (v: number) => void;
 };
 
+// Fix for line 29: Added return statement and completed function implementation.
 export function useLiveApi(): UseLiveApiResults {
   const { model, transcriptionMode } = useSettings();
   
@@ -40,7 +41,6 @@ export function useLiveApi(): UseLiveApiResults {
   const [connected, setConnected] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   
-  // FIX: Added outputAudioTranscription to prevent potential gRPC internal errors when model generates content.
   const [config, setConfig] = useState<LiveConnectConfig>({
     responseModalities: [Modality.AUDIO],
     inputAudioTranscription: {},
@@ -69,13 +69,13 @@ export function useLiveApi(): UseLiveApiResults {
       setInputVolume(0);
       setOutputVolume(0);
     };
-    const onError = () => {
+    const onError = (err: any) => {
+      console.warn('UseLiveApi: Received client error', err);
       setConnected(false);
       setInputVolume(0);
       setOutputVolume(0);
     };
     
-    // MUTE: The user only wants transcription. We intentionally ignore the audio modality output.
     const onAudio = (data: ArrayBuffer) => {
       // Audio chunks suppressed for transcription-only workflow.
       console.debug('Audio chunk received and suppressed.');
@@ -98,8 +98,8 @@ export function useLiveApi(): UseLiveApiResults {
             functionResponses: [{ 
               id: fc.id, 
               name: fc.name, 
-              response: { result: 'ok' } 
-            }] 
+              response: { result: 'ok' }
+            }]
           });
         }
       }
@@ -121,28 +121,28 @@ export function useLiveApi(): UseLiveApiResults {
   }, [client]);
 
   const connect = useCallback(async () => {
-    if (connected) return;
-    return client.connect(config).then(() => {});
-  }, [client, config, connected]);
+    if (!config) {
+      throw new Error('config has not been set');
+    }
+    client.disconnect();
+    await client.connect(config);
+  }, [client, config]);
 
   const disconnect = useCallback(() => {
     client.disconnect();
-    setConnected(false);
-    setInputVolume(0);
-    setOutputVolume(0);
   }, [client]);
 
-  return { 
-    client, 
-    config, 
-    setConfig, 
-    connect, 
-    connected, 
-    disconnect, 
-    isAiSpeaking, 
+  return {
+    client,
+    config,
+    setConfig,
+    connect,
+    disconnect,
+    connected,
+    isAiSpeaking,
     volume: outputVolume,
-    outputVolume, 
+    outputVolume,
     inputVolume,
-    setInputVolume
+    setInputVolume,
   };
 }

@@ -26,7 +26,7 @@ function decode(base64: string) {
  * for handling audio, transcriptions, and tool calls.
  */
 export class GenAILiveClient {
-  private sessionPromise: any = null;
+  private sessionPromise: Promise<any> | null = null;
   private session: any = null;
   private model: string;
   private emitter = new EventEmitter();
@@ -39,19 +39,20 @@ export class GenAILiveClient {
   }
 
   async connect(config: LiveConnectConfig): Promise<boolean> {
-    if (this.session) return true;
+    if (this.session || this.sessionPromise) return true;
     
-    // CRITICAL: Always use process.env.API_KEY directly and instantiate 
-    // right before connection to ensure we have the most up-to-date key from the dialog.
+    // CRITICAL: Always use process.env.API_KEY directly.
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      const err = new Error('API Key is missing. Please select a key.');
-      this.emitter.emit('error', err);
-      if (window.aistudio) window.aistudio.openSelectKey();
+    if (!apiKey || apiKey === 'undefined' || apiKey.length < 5) {
+      console.warn('GenAILiveClient: API Key is missing or invalid. Prompting user.');
+      if (window.aistudio) {
+        await window.aistudio.openSelectKey();
+      }
       return false;
     }
 
     const ai = new GoogleGenAI({ apiKey });
+    console.debug('GenAILiveClient: Attempting connection to model:', this.model);
     
     try {
       this.sessionPromise = ai.live.connect({
@@ -59,59 +60,66 @@ export class GenAILiveClient {
         config: config,
         callbacks: {
           onopen: () => {
+            console.debug('GenAILiveClient: WebSocket Opened');
             this.emitter.emit('open');
           },
           onmessage: async (message: LiveServerMessage) => {
-            if (message.serverContent) {
-              this.emitter.emit('content', message.serverContent);
-              
-              const modelTurn = message.serverContent?.modelTurn;
-              if (modelTurn?.parts) {
-                for (const part of modelTurn.parts) {
-                  if (part.inlineData?.data) {
-                    const audioBytes = decode(part.inlineData.data);
-                    this.emitter.emit('audio', audioBytes.buffer);
+            try {
+              if (message.serverContent) {
+                this.emitter.emit('content', message.serverContent);
+                
+                const modelTurn = message.serverContent?.modelTurn;
+                if (modelTurn?.parts) {
+                  for (const part of modelTurn.parts) {
+                    if (part.inlineData?.data) {
+                      const audioBytes = decode(part.inlineData.data);
+                      this.emitter.emit('audio', audioBytes.buffer);
+                    }
+                    if (part.text) {
+                      this.emitter.emit('text', part.text);
+                    }
                   }
-                  if (part.text) {
-                    this.emitter.emit('text', part.text);
-                  }
+                }
+
+                if (message.serverContent.inputTranscription) {
+                  this.emitter.emit('inputTranscription', message.serverContent.inputTranscription.text);
+                }
+                if (message.serverContent.outputTranscription) {
+                  this.emitter.emit('outputTranscription', message.serverContent.outputTranscription.text);
+                }
+                if (message.serverContent.turnComplete) {
+                  this.emitter.emit('turncomplete');
+                }
+                if (message.serverContent.interrupted) {
+                  this.emitter.emit('interrupted');
                 }
               }
 
-              if (message.serverContent.inputTranscription) {
-                this.emitter.emit('inputTranscription', message.serverContent.inputTranscription.text);
+              if (message.toolCall) {
+                this.emitter.emit('toolcall', message.toolCall);
               }
-              if (message.serverContent.outputTranscription) {
-                this.emitter.emit('outputTranscription', message.serverContent.outputTranscription.text);
-              }
-              if (message.serverContent.turnComplete) {
-                this.emitter.emit('turncomplete');
-              }
-              if (message.serverContent.interrupted) {
-                this.emitter.emit('interrupted');
-              }
-            }
-
-            if (message.toolCall) {
-              this.emitter.emit('toolcall', message.toolCall);
+            } catch (msgError) {
+              console.error('GenAILiveClient: Error processing message', msgError);
             }
           },
           onerror: (error: any) => {
-            console.error('GenAILiveClient: Socket error', error);
+            console.error('GenAILiveClient: Socket error detected', error);
             const msg = error?.message || '';
             
-            // If the request fails with "Requested entity was not found", 
-            // it often means the API key is invalid or lacks necessary permissions.
-            if (msg.includes('Requested entity was not found') || msg.includes('Network error')) {
-               console.warn('Network or Entity error detected. Prompting for key selection.');
+            // Handle Network errors or entity not found by prompting for key re-selection
+            if (msg.includes('Requested entity was not found') || msg.includes('Network error') || !msg) {
+               console.warn('Possible Auth/Network failure. Re-opening key selector.');
                if (window.aistudio) {
                  window.aistudio.openSelectKey();
                }
             }
 
-            this.emitter.emit('error', new Error(msg || 'Internal connection error occurred.'));
+            this.emitter.emit('error', new Error(msg || 'Connection error: Check API key and internet access.'));
+            this.session = null;
+            this.sessionPromise = null;
           },
-          onclose: () => {
+          onclose: (e: CloseEvent) => {
+            console.debug('GenAILiveClient: WebSocket Closed', e.code, e.reason);
             this.emitter.emit('close');
             this.session = null;
             this.sessionPromise = null;
@@ -121,10 +129,10 @@ export class GenAILiveClient {
 
       this.session = await this.sessionPromise;
       return true;
-    } catch (e) {
+    } catch (e: any) {
       this.session = null;
       this.sessionPromise = null;
-      console.debug('GenAILiveClient: Connection failed.', e);
+      console.error('GenAILiveClient: Initial connection catch', e);
       this.emitter.emit('error', e);
       return false;
     }
@@ -135,9 +143,9 @@ export class GenAILiveClient {
       try {
         this.session.close();
       } catch (e) {}
-      this.session = null;
-      this.sessionPromise = null;
     }
+    this.session = null;
+    this.sessionPromise = null;
   }
 
   sendRealtimeInput(chunks: any[]) {

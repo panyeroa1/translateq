@@ -26,6 +26,8 @@ interface SettingsState {
   voice: string;
   voiceFocus: boolean;
   supabaseEnabled: boolean;
+  webhookEnabled: boolean;
+  webhookUrl: string;
   meetingId: string;
   transcriptionMode: 'neural' | 'native';
   setSystemPrompt: (prompt: string) => void;
@@ -33,6 +35,8 @@ interface SettingsState {
   setVoice: (voice: string) => void;
   setVoiceFocus: (focus: boolean) => void;
   setSupabaseEnabled: (enabled: boolean) => void;
+  setWebhookEnabled: (enabled: boolean) => void;
+  setWebhookUrl: (url: string) => void;
   setMeetingId: (id: string) => void;
   setTranscriptionMode: (mode: 'neural' | 'native') => void;
   refreshSystemPrompt: () => void;
@@ -46,6 +50,8 @@ export const useSettings = create<SettingsState>()(
       voice: DEFAULT_VOICE,
       voiceFocus: false,
       supabaseEnabled: false,
+      webhookEnabled: false,
+      webhookUrl: '',
       meetingId: '',
       transcriptionMode: 'neural',
       setSystemPrompt: prompt => set({ systemPrompt: prompt }),
@@ -53,17 +59,21 @@ export const useSettings = create<SettingsState>()(
       setVoice: voice => set({ voice }),
       setVoiceFocus: focus => set(state => ({ voiceFocus: focus, systemPrompt: generatePrompt(focus) })),
       setSupabaseEnabled: enabled => set({ supabaseEnabled: enabled }),
+      setWebhookEnabled: enabled => set({ webhookEnabled: enabled }),
+      setWebhookUrl: webhookUrl => set({ webhookUrl }),
       setMeetingId: meetingId => set({ meetingId }),
       setTranscriptionMode: transcriptionMode => set({ transcriptionMode }),
       refreshSystemPrompt: () => set(state => ({ systemPrompt: generatePrompt(state.voiceFocus) }))
     }),
     {
-      name: 'tcaller-settings-transcribe-v2',
+      name: 'tcaller-settings-transcribe-v3',
       partialize: (state) => ({ 
         meetingId: state.meetingId,
         voice: state.voice,
         voiceFocus: state.voiceFocus,
         supabaseEnabled: state.supabaseEnabled,
+        webhookEnabled: state.webhookEnabled,
+        webhookUrl: state.webhookUrl,
         transcriptionMode: state.transcriptionMode
       }),
     }

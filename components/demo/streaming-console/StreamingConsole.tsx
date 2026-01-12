@@ -17,7 +17,14 @@ import {
 
 export default function StreamingConsole() {
   const { client, setConfig, connected, inputVolume } = useLiveAPIContext();
-  const { systemPrompt, supabaseEnabled, transcriptionMode } = useSettings();
+  const { 
+    systemPrompt, 
+    supabaseEnabled, 
+    webhookEnabled, 
+    webhookUrl, 
+    transcriptionMode,
+    meetingId
+  } = useSettings();
   const { tools } = useTools();
   const { turns, addTurn, sessionId } = useLogStore();
   
@@ -44,12 +51,14 @@ export default function StreamingConsole() {
 
       // Descent animation duration
       setTimeout(() => {
+        const timestamp = new Date();
         addTurn({ 
            role: 'user', 
            text: finalContent, 
            isFinal: true 
         });
 
+        // Supabase Sync
         if (supabaseEnabled) {
           logToSupabase({
             session_id: sessionId,
@@ -59,12 +68,28 @@ export default function StreamingConsole() {
           });
         }
 
+        // Webhook Integration
+        if (webhookEnabled && webhookUrl) {
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'transcription_finalized',
+              sessionId,
+              meetingId,
+              text: finalContent,
+              language: detectedLanguage || 'en',
+              timestamp: timestamp.toISOString()
+            })
+          }).catch(err => console.error('Webhook Failure:', err));
+        }
+
         setTranscriptionSegments([]);
         setIsFinalizing(false);
         lastUserTextRef.current = null;
       }, 500); 
     }
-  }, [addTurn, detectedLanguage, handleActivity, isFinalizing, sessionId, supabaseEnabled]);
+  }, [addTurn, detectedLanguage, handleActivity, isFinalizing, sessionId, supabaseEnabled, webhookEnabled, webhookUrl, meetingId]);
 
   const handleTranscriptionInput = useCallback((text: string, isFinal: boolean = false) => {
     handleActivity();

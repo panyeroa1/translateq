@@ -10,7 +10,20 @@ import { useState } from 'react';
 
 export default function Sidebar() {
   const { isSidebarOpen, toggleSidebar } = useUI();
-  const { voiceFocus, supabaseEnabled, meetingId, transcriptionMode, setVoiceFocus, setSupabaseEnabled, setMeetingId, setTranscriptionMode } = useSettings();
+  const { 
+    voiceFocus, 
+    supabaseEnabled, 
+    webhookEnabled,
+    webhookUrl,
+    meetingId, 
+    transcriptionMode, 
+    setVoiceFocus, 
+    setSupabaseEnabled, 
+    setWebhookEnabled,
+    setWebhookUrl,
+    setMeetingId, 
+    setTranscriptionMode 
+  } = useSettings();
   const { connected } = useLiveAPIContext();
   
   const [copied, setCopied] = useState(false);
@@ -77,6 +90,45 @@ export default function Sidebar() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sidebar-section">
+          <header className="section-header">
+            <span className="material-symbols-outlined">link</span>
+            <h4>External Integrations</h4>
+          </header>
+          
+          <div className="settings-card">
+            <div className="setting-row vertical">
+              <div className="setting-info">
+                <label className="setting-label">Webhook URL</label>
+                <p className="setting-desc">POST verbatim JSON to external endpoints</p>
+              </div>
+              <input 
+                type="url"
+                className="meeting-id-input"
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
+                placeholder="https://your-api.com/webhook"
+                spellCheck={false}
+              />
+            </div>
+
+            <div className="setting-row">
+              <div className="setting-info">
+                <label className="setting-label">Enable Webhook</label>
+                <p className="setting-desc">Fire on transcription finalization</p>
+              </div>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={webhookEnabled}
+                  onChange={(e) => setWebhookEnabled(e.target.checked)}
+                />
+                <span className="slider round"></span>
+              </label>
             </div>
           </div>
         </div>
@@ -155,7 +207,7 @@ export default function Sidebar() {
           <div className="status-meeting">
             {meetingId ? `BINDED: ${meetingId}` : 'ISOLATED'}
           </div>
-          <span className="version-text">v4.1.0 [EBURON.AI]</span>
+          <span className="version-text">v4.2.0 [EBURON.AI]</span>
         </div>
       </div>
     </aside>

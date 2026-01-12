@@ -268,11 +268,13 @@ header.header-glass {
   justify-content: flex-start;
   text-align: left;
   min-height: 160px;
+  position: relative; /* Base for snapshot */
 }
 
 .live-text-area {
   width: 100%;
   max-width: 850px;
+  position: relative;
 }
 
 .live-result.transcribe-mode {
@@ -287,16 +289,25 @@ header.header-glass {
   display: block;
 }
 
+/* Snapshot for descent animation */
+.scribe-snapshot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.7;
+  color: var(--success);
+  pointer-events: none;
+  animation: scribeDescent 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 5;
+}
+
 /* Sentence Goal Styles */
 .live-result.transcribe-mode.sentence-reached {
   color: var(--success); 
   text-shadow: 0 0 15px rgba(50, 255, 126, 0.3);
-}
-
-/* Finalize Descent Animation */
-.live-result.transcribe-mode.is-finalizing {
-  animation: scribeDescent 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  pointer-events: none;
 }
 
 @keyframes scribeDescent {

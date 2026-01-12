@@ -28,8 +28,11 @@ export default function StreamingConsole() {
   const { tools } = useTools();
   const { turns, addTurn, sessionId } = useLogStore();
   
+  // Active transcription being spoken right now
   const [transcriptionSegments, setTranscriptionSegments] = useState<string[]>([]);
-  const [isFinalizing, setIsFinalizing] = useState(false);
+  // Ghost copy for the descent animation
+  const [finalizingSnapshot, setFinalizingSnapshot] = useState<string | null>(null);
+  
   const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
   const [latencyWarning, setLatencyWarning] = useState(false);
   
@@ -45,13 +48,21 @@ export default function StreamingConsole() {
 
   const handleTurnComplete = useCallback(() => {
     handleActivity();
-    if (lastUserTextRef.current && !isFinalizing) {
+    // We snapshot the text to animate it separately, freeing up the input area
+    if (lastUserTextRef.current) {
       const finalContent = lastUserTextRef.current;
-      setIsFinalizing(true);
+      
+      // TRIGGER ANIMATION GHOST
+      setFinalizingSnapshot(finalContent);
+      
+      // INSTANTLY RESET ACTIVE INPUT FOR ACCURACY
+      setTranscriptionSegments([]);
+      lastUserTextRef.current = null;
 
-      // Animation duration (scribeDescent in index.css is 0.6s)
+      const timestamp = new Date();
+      
+      // Perform finalization background tasks
       setTimeout(() => {
-        const timestamp = new Date();
         addTurn({ 
            role: 'user', 
            text: finalContent, 
@@ -84,27 +95,18 @@ export default function StreamingConsole() {
           }).catch(err => console.error('Webhook Failure:', err));
         }
 
-        setTranscriptionSegments([]);
-        setIsFinalizing(false);
-        lastUserTextRef.current = null;
+        // Clear the ghost after animation completes
+        setFinalizingSnapshot(null);
       }, 600); 
     }
-  }, [addTurn, detectedLanguage, handleActivity, isFinalizing, sessionId, supabaseEnabled, webhookEnabled, webhookUrl, meetingId]);
+  }, [addTurn, detectedLanguage, handleActivity, sessionId, supabaseEnabled, webhookEnabled, webhookUrl, meetingId]);
 
   const handleTranscriptionInput = useCallback((text: string, isFinal: boolean = false) => {
     handleActivity();
-    if (isFinalizing) return;
-
-    setTranscriptionSegments(prev => {
-      const last = prev[prev.length - 1];
-      if (last && text.startsWith(last)) {
-        const iArr = [...prev];
-        iArr[iArr.length - 1] = text;
-        return iArr;
-      }
-      return [...prev, text].slice(-2); 
-    });
     
+    // VERBATIM ACCURACY: We no longer ignore input while finalizing.
+    // We treat 'text' as the source of truth for the active buffer.
+    setTranscriptionSegments([text]);
     lastUserTextRef.current = text;
 
     // Check for 2 sentences to auto-finalize
@@ -124,7 +126,7 @@ export default function StreamingConsole() {
         }
       }, 5000);
     }
-  }, [handleActivity, handleTurnComplete, isFinalizing]);
+  }, [handleActivity, handleTurnComplete]);
 
   // Listen for WebSocket messages (including native transcriptions)
   useEffect(() => {
@@ -174,7 +176,7 @@ export default function StreamingConsole() {
     if (!connected && transcriptionMode === 'neural') {
       setDetectedLanguage(null);
       setTranscriptionSegments([]);
-      setIsFinalizing(false);
+      setFinalizingSnapshot(null);
     }
   }, [connected, transcriptionMode]);
 
@@ -237,7 +239,6 @@ export default function StreamingConsole() {
   const words = transcriptionText.split(' ').filter(w => w.length > 0);
   
   const sentenceCount = (transcriptionText.match(/[.!?]/g) || []).length;
-  // USER REQUIREMENT: Turn green when it reaches 1-2 sentences.
   const hasReachedGoal = sentenceCount >= 1;
 
   return (
@@ -255,14 +256,15 @@ export default function StreamingConsole() {
                 <span>SYNC DELAY</span>
               </div>
             )}
-            <div className={cn("status-dot", { connected: connected || (transcriptionMode === 'native' && words.length > 0) })}></div>
+            {/* Fix: Changed 'finalizedSnapshot' to 'finalizingSnapshot' to match the state variable defined on line 45 */}
+            <div className={cn("status-dot", { connected: connected || (transcriptionMode === 'native' && (words.length > 0 || finalizingSnapshot)) })}></div>
           </div>
         </header>
         
         <div className="box-content live-input-field-area">
           <div className="live-text-area">
+             {/* The Active Transcription Area */}
              <div className={cn("live-result transcribe-mode", { 
-               "is-finalizing": isFinalizing,
                "sentence-reached": hasReachedGoal,
                "has-content": words.length > 0 
              })}>
@@ -275,12 +277,21 @@ export default function StreamingConsole() {
                     {word}{' '}
                   </span>
                 ))}
-                {!isFinalizing && (connected || transcriptionMode === 'native') && <span className={cn("blinking-cursor", { active: true })}></span>}
-                {!transcriptionText && (connected || transcriptionMode === 'native') && !isFinalizing && (
+                
+                {(connected || transcriptionMode === 'native') && <span className={cn("blinking-cursor", { active: true })}></span>}
+                
+                {!transcriptionText && !finalizingSnapshot && (connected || transcriptionMode === 'native') && (
                   <span className="ready-placeholder">Listening for speech...</span>
                 )}
-                {!connected && transcriptionMode === 'neural' && <span className="ready-placeholder">System Standby</span>}
+                {!connected && transcriptionMode === 'neural' && !finalizingSnapshot && <span className="ready-placeholder">System Standby</span>}
              </div>
+
+             {/* The Descent Snapshot (Ghost) */}
+             {finalizingSnapshot && (
+               <div className="scribe-snapshot">
+                 {finalizingSnapshot}
+               </div>
+             )}
           </div>
         </div>
       </section>

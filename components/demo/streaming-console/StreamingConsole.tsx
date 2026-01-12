@@ -17,9 +17,9 @@ import {
 
 export default function StreamingConsole() {
   const { client, setConfig, connected, inputVolume } = useLiveAPIContext();
-  const { systemPrompt, supabaseEnabled, sessionId, transcriptionMode } = useSettings();
+  const { systemPrompt, supabaseEnabled, transcriptionMode } = useSettings();
   const { tools } = useTools();
-  const { turns, addTurn } = useLogStore();
+  const { turns, addTurn, sessionId } = useLogStore();
   
   const [transcriptionSegments, setTranscriptionSegments] = useState<string[]>([]);
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -50,9 +50,9 @@ export default function StreamingConsole() {
     setTranscriptionSegments(prev => {
       const last = prev[prev.length - 1];
       if (last && text.startsWith(last)) {
-        const newArr = [...prev];
-        newArr[newArr.length - 1] = text;
-        return newArr;
+        const iArr = [...prev];
+        iArr[iArr.length - 1] = text;
+        return iArr;
       }
       return [...prev, text].slice(-2); 
     });
@@ -158,6 +158,7 @@ export default function StreamingConsole() {
       const finalContent = lastUserTextRef.current;
       setIsFinalizing(true);
 
+      // Desending animation duration should match CSS scribeDescent duration
       setTimeout(() => {
         addTurn({ 
            role: 'user', 
@@ -202,6 +203,7 @@ export default function StreamingConsole() {
   const transcriptionText = transcriptionSegments.join(' ');
   const words = transcriptionText.split(' ').filter(w => w.length > 0);
   
+  // Logic: Identify 1-2 completed sentences
   const sentenceCount = (transcriptionText.match(/[.!?]/g) || []).length;
   const hasReachedGoal = sentenceCount >= 1;
 

@@ -87,21 +87,23 @@ export function useLiveApi(): UseLiveApiResults {
         if (fc.name === 'broadcast_to_websocket') {
           const text = (fc.args as any).text;
           wsService.sendPrompt(text);
-          // Following guideline exactly: send response for the specific ID
+          // Following guideline exactly: send response for the specific ID. 
+          // Fix: functionResponses must be an array.
           client.sendToolResponse({ 
-            functionResponses: { 
+            functionResponses: [{ 
               id: fc.id, 
               name: fc.name, 
               response: { result: 'ok' } 
-            } 
+            }] 
           });
         } else {
+          // Fix: functionResponses must be an array.
           client.sendToolResponse({ 
-            functionResponses: { 
+            functionResponses: [{ 
               id: fc.id, 
               name: fc.name, 
               response: { result: 'ok' } 
-            } 
+            }] 
           });
         }
       }

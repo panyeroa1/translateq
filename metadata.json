@@ -1,5 +1,5 @@
 {
-  "name": "Translate",
+  "name": "t-cribe",
   "description": "Interactive Tunning",
   "requestFramePermissions": [
     "microphone"

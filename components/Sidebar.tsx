@@ -57,9 +57,14 @@ export default function Sidebar() {
                 <p className="setting-desc">Broadcasting transcriptions via WebSocket</p>
               </div>
               <div className="meeting-id-controls">
-                <div className="meeting-id-display">
-                  {meetingId || 'NO ID GENERATED'}
-                </div>
+                <input 
+                  type="text"
+                  className="meeting-id-input"
+                  value={meetingId}
+                  onChange={(e) => setMeetingId(e.target.value.toUpperCase())}
+                  placeholder="AUTO-GENERATE OR TYPE ID"
+                  spellCheck={false}
+                />
                 <div className="meeting-id-actions">
                   <button className="id-btn" onClick={handleGenerateMeetingId} title="Generate New ID">
                     <span className="material-symbols-outlined">refresh</span>

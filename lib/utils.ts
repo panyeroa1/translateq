@@ -79,6 +79,37 @@ export function base64ToArrayBuffer(base64: string) {
 }
 
 /**
+ * Plays a pleasant two-tone chime for start success.
+ */
+export async function playChime() {
+  try {
+    const ctx = await audioContext({ id: 'ui-sounds' });
+    if (ctx.state === 'suspended') await ctx.resume();
+    
+    const now = ctx.currentTime;
+    
+    const playNote = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.1, start + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + duration);
+    };
+
+    playNote(880, now, 0.4); // A5
+    playNote(1174.66, now + 0.1, 0.5); // D6
+  } catch (e) {
+    console.debug('Chime failed', e);
+  }
+}
+
+/**
  * Plays a short beep sound.
  */
 export async function playBeep(frequency = 880, duration = 0.1) {

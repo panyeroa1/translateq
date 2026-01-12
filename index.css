@@ -659,17 +659,24 @@ header.header-glass {
   overflow: hidden;
 }
 
-.meeting-id-display {
+.meeting-id-input {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: transparent;
+  border: none;
   font-family: 'Space Mono', monospace;
   font-weight: 800;
   font-size: 1.1rem;
   letter-spacing: 0.1em;
   color: white;
   padding: 12px;
+  outline: none;
+  width: 100%;
+}
+
+.meeting-id-input::placeholder {
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 0.75rem;
+  letter-spacing: 0;
 }
 
 .meeting-id-actions {

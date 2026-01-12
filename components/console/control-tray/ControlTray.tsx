@@ -9,6 +9,7 @@ import { AudioRecorder } from '../../../lib/audio-recorder';
 import { useUI, useSettings } from '../../../lib/state';
 import { useLiveAPIContext } from '../../../contexts/LiveAPIContext';
 import { wsService } from '../../../lib/websocket-service';
+import { playChime } from '../../../lib/utils';
 
 const MiniVisualizer = memo(({ volume, active }: { volume: number; active: boolean }) => {
   const bars = 4;
@@ -121,12 +122,20 @@ function ControlTray() {
     };
   }, [connected, client, muted, audioRecorder, setInputVolume, transcriptionMode]);
 
+  // Play chime when neural session connects
+  useEffect(() => {
+    if (connected && transcriptionMode === 'neural') {
+      playChime();
+    }
+  }, [connected, transcriptionMode]);
+
   const handleMicClick = () => {
     if (transcriptionMode === 'native') {
       if (isNativeTranscribing) {
         recognitionRef.current?.stop();
         setIsNativeTranscribing(false);
       } else {
+        playChime();
         recognitionRef.current?.start();
         setIsNativeTranscribing(true);
       }
